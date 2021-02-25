@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1021922530606",
+    "project_id": "mcontacts-3c6e5",
+    "storage_bucket": "mcontacts-3c6e5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1021922530606:android:6966fb8bb8c88db3a156bf",
+        "android_client_info": {
+          "package_name": "com.mudasir.mcontacts"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1021922530606-u20d0qp1mf8v0fat0bhgmee42hvvqt9l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.mudasir.mcontacts",
+            "certificate_hash": "c7db8459b48da93c917b34badb37dc768a8fe275"
+          }
+        },
+        {
+          "client_id": "1021922530606-3sjj8to39si1m1p1rb8mm5co2cpfu4u2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCktK2Qx3hVNRE8Bt3SKRHQEFQT756hq14"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1021922530606-3sjj8to39si1m1p1rb8mm5co2cpfu4u2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

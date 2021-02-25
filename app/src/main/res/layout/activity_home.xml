@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    tools:context=".home">
+
+    <com.tsuryo.swipeablerv.SwipeableRecyclerView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:id="@+id/rv_contacts"
+        app:leftBgColor="@color/blue"
+        app:leftText="Message"
+        app:rightBgColor="@color/green"
+        app:rightText="Call"
+        app:textColor="@android:color/white"
+        app:textSize="20sp" />
+
+
+    <ProgressBar
+        android:id="@+id/progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/rv_contacts"
+        app:layout_constraintEnd_toEndOf="@+id/rv_contacts"
+        app:layout_constraintStart_toStartOf="@+id/rv_contacts"
+        app:layout_constraintTop_toTopOf="@+id/rv_contacts" />
+
+    <TextView
+        android:padding="20dp"
+        android:id="@+id/txtAlert"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/indieflower_regular"
+        android:text="@string/no_contacts"
+        android:textColor="@color/blue"
+        android:textSize="20dp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="@+id/rv_contacts"
+        app:layout_constraintTop_toTopOf="@+id/rv_contacts" />
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>

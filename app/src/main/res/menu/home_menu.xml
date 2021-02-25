@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/btnLogout"
+        android:title="logout" />
+
+    <item
+        android:id="@+id/btnSaveAll"
+        android:title="Save All Contacts" />
+
+    <item
+        android:id="@+id/btnAccountDetails"
+        android:title="Account Details" />
+
+
+    <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/ic_baseline_youtube_searched_for_24"
+        android:title="Search"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="ifRoom|collapseActionView" />
+
+    <item
+        app:showAsAction="ifRoom|collapseActionView"
+        android:icon="@drawable/ic_baseline_person_add_24"
+        android:id="@+id/btnAddContact"
+        android:title="Add Contact" />
+
+
+</menu>

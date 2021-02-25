@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MContacts</string>
+    <string name="no_contacts">No Contacts ! Goto To Top Right Menu and Click on Save All Contacts to save phone contacts on cloud as Back-Up copy of contacts.</string>
+    <string name="update">Update</string>
+    <string name="delete">Delete</string>
+    <string name="no_internet">No Internet Connection! Please Connect to Internet Connection!</string>
+</resources>

@@ -2,6 +2,7 @@ package com.mudasir.mcontacts;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
 import androidx.core.app.ActivityCompat;
@@ -96,6 +97,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     String text;
     private int mpos;
     private NetworkChangeReceiver mNetworkReceiver;
+    static ActionBar actionbar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -199,13 +201,17 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                     }
                     fillintoRecyclerView(context);
                     swipLayout.setRefreshing(false);
+                    actionbar.setSubtitle("Contacts Count: "+dynamiccontactList.size());
+
 
                 } else {
                     swipLayout.setRefreshing(false);
                     // if has not Data
                     progressBar.setVisibility(View.GONE);
                     tvalert.setVisibility(View.VISIBLE);
+                    tvalert.setBackgroundColor(Color.BLUE);
                     tvalert.setText(R.string.no_contacts);
+
                     Toasty.info(context, "No Data Found!", Toast.LENGTH_SHORT, true).show();
                 }
 
@@ -241,7 +247,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     private void init() {
         dynamiccontactList = new ArrayList<>();
-        getSupportActionBar().setTitle("MContacts- Backup on Cloud");
+        actionbar=getSupportActionBar();
+        actionbar.setTitle("MContacts- Backup on Cloud");
         recyclerView = findViewById(R.id.rv_contacts);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);

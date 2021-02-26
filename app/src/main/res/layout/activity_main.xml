@@ -9,23 +9,15 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <androidx.cardview.widget.CardView
+    <ImageView
         android:layout_gravity="center"
-        android:elevation="20dp"
-        app:cardCornerRadius="30dp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
-
-        <ImageView
-            android:src="@drawable/call_logo"
-            android:id="@+id/imageView"
-            android:scaleType="fitXY"
-            android:layout_width="100dp"
-            android:layout_height="100dp"
-             />
-
-    </androidx.cardview.widget.CardView>
-
+        android:background="#FFF"
+        android:src="@drawable/logo"
+        android:id="@+id/imageView"
+        android:scaleType="fitXY"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        />
 
     <TextView
         android:id="@+id/textView"

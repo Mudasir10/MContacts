@@ -7,20 +7,28 @@
     android:gravity="center"
     tools:context=".home">
 
-    <com.tsuryo.swipeablerv.SwipeableRecyclerView
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_layout"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:id="@+id/rv_contacts"
-        app:leftBgColor="@color/blue"
-        app:leftText="Message"
-        app:rightBgColor="@color/green"
-        app:rightText="Call"
-        app:textColor="@android:color/white"
-        app:textSize="20sp" />
+        android:layout_height="match_parent">
+
+        <com.tsuryo.swipeablerv.SwipeableRecyclerView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            android:id="@+id/rv_contacts"
+            app:leftBgColor="@color/blue"
+            app:leftText="Message"
+            app:rightBgColor="@color/green"
+            app:rightText="Call"
+            app:textColor="@android:color/white"
+            app:textSize="20sp" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
 
 
     <ProgressBar
@@ -28,10 +36,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/rv_contacts"
-        app:layout_constraintEnd_toEndOf="@+id/rv_contacts"
-        app:layout_constraintStart_toStartOf="@+id/rv_contacts"
-        app:layout_constraintTop_toTopOf="@+id/rv_contacts" />
+        app:layout_constraintBottom_toBottomOf="@+id/swipe_layout"
+        app:layout_constraintEnd_toEndOf="@+id/swipe_layout"
+        app:layout_constraintStart_toStartOf="@+id/swipe_layout"
+        app:layout_constraintTop_toTopOf="@+id/swipe_layout" />
 
     <TextView
         android:padding="20dp"
@@ -46,8 +54,8 @@
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="@+id/rv_contacts"
-        app:layout_constraintTop_toTopOf="@+id/rv_contacts" />
+        app:layout_constraintStart_toStartOf="@+id/swipe_layout"
+        app:layout_constraintTop_toTopOf="@+id/swipe_layout" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

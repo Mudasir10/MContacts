@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.Manifest;
 import android.app.AlertDialog;
@@ -17,9 +18,11 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -54,6 +57,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.mudasir.mcontacts.adapters.ContactsAdapter;
 import com.mudasir.mcontacts.listeners.OnContactsClickListener;
+import com.mudasir.mcontacts.reciever.NetworkChangeReceiver;
 import com.tsuryo.swipeablerv.SwipeLeftRightCallback;
 import com.tsuryo.swipeablerv.SwipeableRecyclerView;
 
@@ -68,28 +72,30 @@ import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks{
+public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks, SwipeRefreshLayout.OnRefreshListener{
 
-    SwipeableRecyclerView recyclerView;
-    ContactsAdapter mAdapter;
+    static SwipeableRecyclerView recyclerView;
+    static SwipeRefreshLayout swipLayout;
+    static ContactsAdapter mAdapter;
     List<Contact> contactList = new ArrayList<>();
 
-    List<CloudContacts> dynamiccontactList;
+    static List<CloudContacts> dynamiccontactList;
 
-    private DatabaseReference mDatabaseRef;
-    private FirebaseAuth mAuth;
-    private FirebaseUser mCurrentUser;
-    private String CurrentUserId;
-    private TextView tvalert;
+    static DatabaseReference mDatabaseRef;
+    static FirebaseAuth mAuth;
+    static FirebaseUser mCurrentUser;
+    static String CurrentUserId;
+    static TextView tvalert;
     private SharedPreferences sharedPreferences;
     private SharedPreferences.Editor editor;
 
     public static final String SHARED_PREFS = "sharedPrefs";
     public static final String TEXT = "text";
-    private ProgressBar progressBar;
+    static ProgressBar progressBar;
 
     String text;
     private int mpos;
+    private NetworkChangeReceiver mNetworkReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,9 +105,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         getDatabaseRefAndUserId();
 
         init();
-
         if (haveNetworkConnection()){
-            getDataFromDatabase();
+            getDataFromDatabase(this);
         }
         else{
             progressBar.setVisibility(View.GONE);
@@ -109,24 +114,78 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
             tvalert.setText(R.string.no_internet);
         }
 
-
         initSharedPreferences();
 
 
     }
 
-    private void fillintoRecyclerView() {
+    private void registerNetworkBroadcastForNougat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        }
+    }
 
-        mAdapter = new ContactsAdapter(home.this, dynamiccontactList,CurrentUserId);
+    protected void unregisterNetworkChanges() {
+        try {
+            unregisterReceiver(mNetworkReceiver);
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    public static boolean checkInternet(boolean value,Context context){
+        if(value){
+            tvalert.setText("We are back !!!");
+            tvalert.setBackgroundColor(Color.GREEN);
+            tvalert.setTextColor(Color.WHITE);
+            Handler handler = new Handler();
+            Runnable delayrunnable = new Runnable() {
+                @Override
+                public void run() {
+                    tvalert.setVisibility(View.GONE);
+                    getDataFromDatabase(context);
+                }
+            };
+            handler.postDelayed(delayrunnable, 3000);
+            return true;
+        }else {
+            tvalert.setVisibility(View.VISIBLE);
+            tvalert.setText("Could not Connect to internet");
+            tvalert.setBackgroundColor(Color.RED);
+            tvalert.setTextColor(Color.WHITE);
+
+            Handler handler = new Handler();
+            Runnable delayrunnable = new Runnable() {
+                @Override
+                public void run() {
+                    tvalert.setVisibility(View.VISIBLE);
+                    tvalert.setText(R.string.no_internet);
+                    recyclerView.setAdapter(null);
+                    dynamiccontactList.clear();
+                }
+            };
+            handler.postDelayed(delayrunnable, 3000);
+
+            return false;
+        }
+    }
+
+    private static void fillintoRecyclerView(Context context) {
+
+        mAdapter = new ContactsAdapter(context, dynamiccontactList,CurrentUserId);
         recyclerView.setAdapter(mAdapter);
-        getSupportActionBar().setSubtitle("Contacts Count: " + dynamiccontactList.size());
+       // getSupportActionBar().setSubtitle("Contacts Count: " + dynamiccontactList.size());
         // if has Data
         progressBar.setVisibility(View.GONE);
         tvalert.setVisibility(View.GONE);
 
     }
 
-    private void getDataFromDatabase() {
+    public static void getDataFromDatabase(Context context) {
 
         mDatabaseRef.child(CurrentUserId).addValueEventListener(new ValueEventListener() {
             @Override
@@ -138,15 +197,16 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                         CloudContacts contacts = shot.getValue(CloudContacts.class);
                         dynamiccontactList.add(contacts);
                     }
-
-                    fillintoRecyclerView();
+                    fillintoRecyclerView(context);
+                    swipLayout.setRefreshing(false);
 
                 } else {
+                    swipLayout.setRefreshing(false);
                     // if has not Data
                     progressBar.setVisibility(View.GONE);
                     tvalert.setVisibility(View.VISIBLE);
                     tvalert.setText(R.string.no_contacts);
-                    Toasty.info(home.this, "No Data Found!", Toast.LENGTH_SHORT, true).show();
+                    Toasty.info(context, "No Data Found!", Toast.LENGTH_SHORT, true).show();
                 }
 
             }
@@ -158,7 +218,13 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         });
 
 
+    }
 
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterNetworkChanges();
     }
 
     private void initSharedPreferences() {
@@ -179,6 +245,15 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         recyclerView = findViewById(R.id.rv_contacts);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
+
+        swipLayout = findViewById(R.id.swipe_layout);
+        swipLayout.setOnRefreshListener(this);
+
+        swipLayout.setColorSchemeResources(R.color.colorAccent,
+                android.R.color.holo_green_dark,
+                android.R.color.holo_orange_dark,
+                android.R.color.holo_blue_dark);
+
 
         recyclerView.setListener(new SwipeLeftRightCallback.Listener() {
             @Override
@@ -201,6 +276,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         progressBar = findViewById(R.id.progress);
         tvalert = findViewById(R.id.txtAlert);
         progressBar.setVisibility(View.VISIBLE);
+        mNetworkReceiver = new NetworkChangeReceiver();
+        registerNetworkBroadcastForNougat();
     }
 
     private static final String[] PROJECTION = new String[]{
@@ -391,6 +468,17 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 .setNegativeButton("Cancel", null)
                 .create();
         dialog.show();
+
+    }
+
+    @Override
+    public void onRefresh() {
+        if (haveNetworkConnection()){
+            getDataFromDatabase(this);
+        }
+        else{
+
+        }
 
     }
 

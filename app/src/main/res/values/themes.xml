@@ -14,6 +14,8 @@
         <!-- Customize your theme here. -->
     </style>
 
+
+
     <style name="Divider">
         <item name="android:background">?android:attr/listDivider</item> //you can give your color here. that will change all divider color in your app.
     </style>
@@ -23,5 +25,8 @@
         <item name="android:layout_height">1dp</item> // You can change thickness here.
 
     </style>
+
+
+
 
 </resources>

@@ -2,7 +2,10 @@ package com.mudasir.mcontacts;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -17,6 +20,8 @@ import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.GoogleAuthProvider;
 
+import es.dmoral.toasty.Toasty;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int RC_SIGN_IN = 1;
@@ -30,11 +35,20 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 
-        mAuth = FirebaseAuth.getInstance();
-        createRequest();
+        if (haveNetworkConnection()){
+            mAuth = FirebaseAuth.getInstance();
+            createRequest();
+        }else{
+            Toasty.info(this,"please connect internet then try again!",Toasty.LENGTH_SHORT).show();
+        }
 
         findViewById(R.id.sign_in_button).setOnClickListener(v -> {
-            signIn();
+            if (haveNetworkConnection()){
+                signIn();
+            }
+            else{
+                Toasty.info(this,"Cannot signIn without internet connection!",Toasty.LENGTH_SHORT).show();
+            }
         });
 
     }
@@ -47,12 +61,27 @@ public class MainActivity extends AppCompatActivity {
                 .build();
 
         mGoogleSignInClient= GoogleSignIn.getClient(this,gso);
-
     }
 
     private void signIn() {
         Intent signInIntent = mGoogleSignInClient.getSignInIntent();
         startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+    private boolean haveNetworkConnection() {
+        boolean haveConnectedWifi = false;
+        boolean haveConnectedMobile = false;
+
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo[] netInfo = cm.getAllNetworkInfo();
+        for (NetworkInfo ni : netInfo) {
+            if (ni.getTypeName().equalsIgnoreCase("WIFI"))
+                if (ni.isConnected())
+                    haveConnectedWifi = true;
+            if (ni.getTypeName().equalsIgnoreCase("MOBILE"))
+                if (ni.isConnected())
+                    haveConnectedMobile = true;
+        }
+        return haveConnectedWifi || haveConnectedMobile;
     }
 
     @Override

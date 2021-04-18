@@ -111,7 +111,8 @@ public class AddContactsActivity extends AppCompatActivity {
                 else{
                     Toast toast =  Toasty.error(this,"Name and Phone Fields Can not be Empty",Toasty.LENGTH_SHORT,true);
                     toast.setGravity(Gravity.CENTER, 0, 0);
-                    toast.show();  }
+                    toast.show();
+                    }
 
 
             }

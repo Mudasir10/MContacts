@@ -63,7 +63,7 @@ public class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.Contac
     @Override
     public ContactsViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
 
-        View root = LayoutInflater.from(mContext).inflate(R.layout.single_item_contact, parent, false);
+        View root = LayoutInflater.from(parent.getContext()).inflate(R.layout.single_item_contact, parent, false);
         return new ContactsViewHolder(root);
     }
 
@@ -150,6 +150,7 @@ public class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.Contac
                                 DatabaseReference deleteRef = mDatabaseRef.child(Uid).child(key);
                                 deleteRef.removeValue().addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
+                                        contactList.remove(pos);
                                         notifyDataSetChanged();
                                         Toasty.success(mContext, "Successfully Delete Contacts", Toasty.LENGTH_SHORT, true).show();
                                     } else {

@@ -43,21 +43,23 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.gms.ads.AdListener;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize;
+import com.google.android.gms.ads.AdView;
+
+import com.google.android.gms.ads.InterstitialAd;
+import com.google.android.gms.ads.MobileAds;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.ChildEventListener;
+
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.mudasir.mcontacts.adapters.ContactsAdapter;
-import com.mudasir.mcontacts.listeners.OnContactsClickListener;
+
 import com.mudasir.mcontacts.reciever.NetworkChangeReceiver;
 import com.tsuryo.swipeablerv.SwipeLeftRightCallback;
 import com.tsuryo.swipeablerv.SwipeableRecyclerView;
@@ -73,7 +75,7 @@ import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
-public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks, SwipeRefreshLayout.OnRefreshListener{
+public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks, SwipeRefreshLayout.OnRefreshListener {
 
     static SwipeableRecyclerView recyclerView;
     static SwipeRefreshLayout swipLayout;
@@ -94,10 +96,14 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     public static final String TEXT = "text";
     static ProgressBar progressBar;
 
+    private InterstitialAd mInterstitialAd;
+
     String text;
     private int mpos;
     private NetworkChangeReceiver mNetworkReceiver;
     static ActionBar actionbar;
+
+    private AdView mAdView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -107,10 +113,33 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         getDatabaseRefAndUserId();
 
         init();
-        if (haveNetworkConnection()){
+        if (haveNetworkConnection()) {
             getDataFromDatabase(this);
-        }
-        else{
+
+            MobileAds.initialize(this,
+                    "ca-app-pub-8058404407420215~3529130369");
+
+            mAdView = new AdView(this);
+            mAdView.setAdSize(AdSize.BANNER);
+            mAdView.setAdUnitId("ca-app-pub-8058404407420215/5963722012");
+            mAdView = findViewById(R.id.adView);
+            AdRequest adRequest = new AdRequest.Builder()
+                    .build();
+            mAdView.loadAd(adRequest);
+
+            mAdView.setAdListener(new AdListener() {
+                @Override
+                public void onAdLoaded() {
+                    super.onAdLoaded();
+                }
+
+                @Override
+                public void onAdFailedToLoad(int i) {
+                    super.onAdFailedToLoad(i);
+                }
+            });
+
+        } else {
             progressBar.setVisibility(View.GONE);
             tvalert.setVisibility(View.VISIBLE);
             tvalert.setText(R.string.no_internet);
@@ -139,8 +168,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-    public static boolean checkInternet(boolean value,Context context){
-        if(value){
+    public static boolean checkInternet(boolean value, Context context) {
+        if (value) {
             tvalert.setText("We are back !!!");
             tvalert.setBackgroundColor(Color.GREEN);
             tvalert.setTextColor(Color.WHITE);
@@ -154,7 +183,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
             };
             handler.postDelayed(delayrunnable, 3000);
             return true;
-        }else {
+        } else {
             tvalert.setVisibility(View.VISIBLE);
             tvalert.setText("Could not Connect to internet");
             tvalert.setBackgroundColor(Color.RED);
@@ -178,9 +207,9 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     private static void fillintoRecyclerView(Context context) {
 
-        mAdapter = new ContactsAdapter(context, dynamiccontactList,CurrentUserId);
+        mAdapter = new ContactsAdapter(context, dynamiccontactList, CurrentUserId);
         recyclerView.setAdapter(mAdapter);
-       // getSupportActionBar().setSubtitle("Contacts Count: " + dynamiccontactList.size());
+        // getSupportActionBar().setSubtitle("Contacts Count: " + dynamiccontactList.size());
         // if has Data
         progressBar.setVisibility(View.GONE);
         tvalert.setVisibility(View.GONE);
@@ -201,7 +230,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                     }
                     fillintoRecyclerView(context);
                     swipLayout.setRefreshing(false);
-                    actionbar.setSubtitle("Contacts Count: "+dynamiccontactList.size());
+                    actionbar.setSubtitle("Contacts Count: " + dynamiccontactList.size());
 
 
                 } else {
@@ -247,7 +276,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     private void init() {
         dynamiccontactList = new ArrayList<>();
-        actionbar=getSupportActionBar();
+        actionbar = getSupportActionBar();
         actionbar.setTitle("MContacts- Backup on Cloud");
         recyclerView = findViewById(R.id.rv_contacts);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -267,15 +296,17 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
             public void onSwipedLeft(int position) {
                 //call Code Here
                 mpos = position;
-                CallUser();
+                String phone = dynamiccontactList.get(mpos).getPhone();
+                dialContactPhone(phone);
                 mAdapter.notifyDataSetChanged();
             }
 
             @Override
             public void onSwipedRight(int position) {
                 //Message Code here
-                mpos=position;
-                sendSms();
+                mpos = position;
+                String phone = dynamiccontactList.get(mpos).getPhone();
+                sendSms(phone);
                 mAdapter.notifyDataSetChanged();
             }
         });
@@ -300,7 +331,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         getMenuInflater().inflate(R.menu.home_menu, menu);
 
         MenuItem searchItem = menu.findItem(R.id.action_search);
-        androidx.appcompat.widget.SearchView searchView= (androidx.appcompat.widget.SearchView) searchItem.getActionView();
+        androidx.appcompat.widget.SearchView searchView = (androidx.appcompat.widget.SearchView) searchItem.getActionView();
         searchView.setImeOptions(EditorInfo.IME_ACTION_DONE);
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
@@ -311,15 +342,23 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (haveNetworkConnection()){
-                    if (!mAdapter.equals(null)){
-                        mAdapter.getFilter().filter(newText);
+
+                try {
+                    if (haveNetworkConnection()) {
+                        if (!mAdapter.equals(null)) {
+                            mAdapter.getFilter().filter(newText);
+                        } else {
+                            Toasty.error(home.this, "No Data!", Toasty.LENGTH_SHORT, true).show();
+                        }
+                    } else {
+                        Toasty.error(home.this, "No Internet Connection!", Toasty.LENGTH_SHORT, true).show();
                     }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
                 }
-                else{
-                    Toasty.error(home.this,"No data!",Toasty.LENGTH_SHORT,true).show();
-                }
+
                 return false;
+
             }
         });
 
@@ -345,43 +384,55 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
             case R.id.btnLogout:
-                    logout();
+                logout();
                 break;
             case R.id.btnAccountDetails:
-                if (haveNetworkConnection()){
+                if (haveNetworkConnection()) {
                     Intent intent = new Intent(home.this, AccountDetails.class);
                     startActivity(intent);
-                }else{
+                } else {
                     Toast.makeText(this, "Enable Internet Connection to go to Account Details Activity!", Toast.LENGTH_SHORT).show();
                 }
                 break;
             case R.id.btnAddContact:
-                if (haveNetworkConnection()){
+                if (haveNetworkConnection()) {
                     Intent intent = new Intent(home.this, AddContactsActivity.class);
                     startActivity(intent);
-                }else{
+                } else {
                     Toast.makeText(this, "Enable Internet Connection to go to Account Details Activity!", Toast.LENGTH_SHORT).show();
                 }
                 break;
             case R.id.btnSaveAll:
                 if (text.equals("read")) {
-                    if (haveNetworkConnection()){
+                    if (haveNetworkConnection()) {
                         ReadContacts();
+                        mInterstitialAd = new InterstitialAd(this);
+                        mInterstitialAd.setAdUnitId(getString(R.string.interstitial_full_screen));
+                        AdRequest adRequest = new AdRequest.Builder()
+                                .build();
+                        mInterstitialAd.loadAd(adRequest);
+                        mInterstitialAd.setAdListener(new AdListener() {
+                            @Override
+                            public void onAdLoaded() {
+                                super.onAdLoaded();
+                                showInterstitial();
+                            }
+                        });
+
                         editor.putString(TEXT, "delete");
                         editor.apply();
                         item.setTitle("Delete All Contacts");
-                    }
-                    else{
-                        Toasty.error(this,"Can not Read And Store Contacts While You dont have internet Connection",Toasty.LENGTH_SHORT,true).show();
+                    } else {
+                        Toasty.error(this, "Can not Read And Store Contacts While You dont have internet Connection", Toasty.LENGTH_SHORT, true).show();
                     }
 
 
                 }
                 if (text.equals("delete")) {
-                    if (haveNetworkConnection()){
+                    if (haveNetworkConnection()) {
                         DeleteAllContacts(CurrentUserId, item);
-                    }else{
-                        Toasty.error(this,"Can not Delete Contacts While You dont have internet Connection",Toasty.LENGTH_SHORT,true).show();
+                    } else {
+                        Toasty.error(this, "Can not Delete Contacts While You dont have internet Connection", Toasty.LENGTH_SHORT, true).show();
                     }
 
                 }
@@ -390,6 +441,12 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showInterstitial() {
+        if (mInterstitialAd.isLoaded()) {
+            mInterstitialAd.show();
+        }
     }
 
     private void DeleteAllContacts(String uid, MenuItem item) {
@@ -429,61 +486,19 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-    @AfterPermissionGranted(1)
-    private void CallUser() {
-        String[] perms = {Manifest.permission.CALL_PHONE};
-        if (EasyPermissions.hasPermissions(this, perms)) {
-            call();
-        } else {
-            EasyPermissions.requestPermissions(this, "We need Call permissions to Call The User",
-                    1, perms);
-        }
+    private void dialContactPhone(final String phoneNumber) {
+        startActivity(new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phoneNumber, null)));
     }
 
-    private void call() {
-        CloudContacts contact = dynamiccontactList.get(mpos);
-        Intent callIntent = new Intent(Intent.ACTION_CALL);
-        callIntent.setData(Uri.parse("tel:" + contact.getPhone()));
-        startActivity(callIntent);
-    }
-
-
-    @AfterPermissionGranted(2)
-    private void sendSms() {
-        String[] perms = {Manifest.permission.SEND_SMS};
-        if (EasyPermissions.hasPermissions(this, perms)) {
-            Sms();
-        } else {
-            EasyPermissions.requestPermissions(this, "We need Send_Sms permissions to send sms!",
-                    2, perms);
-        }
-    }
-
-    private void Sms() {
-        final EditText taskEditText = new EditText(this);
-        taskEditText.setHint("Type Msg here...");
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("Send Message")
-                .setView(taskEditText)
-                .setPositiveButton("Send", (dialog1, which) -> {
-                    String task = String.valueOf(taskEditText.getText());
-                    CloudContacts contact = dynamiccontactList.get(mpos);
-                    SmsManager smsManager = SmsManager.getDefault();
-                    smsManager.sendTextMessage(contact.getPhone(), null, task, null, null);
-
-                })
-                .setNegativeButton("Cancel", null)
-                .create();
-        dialog.show();
-
+    private void sendSms(final String number) {
+        startActivity(new Intent(Intent.ACTION_VIEW, Uri.fromParts("sms", number, null)));
     }
 
     @Override
     public void onRefresh() {
-        if (haveNetworkConnection()){
+        if (haveNetworkConnection()) {
             getDataFromDatabase(this);
-        }
-        else{
+        } else {
 
         }
 
@@ -623,7 +638,6 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         }
         return haveConnectedWifi || haveConnectedMobile;
     }
-
 
 
 }

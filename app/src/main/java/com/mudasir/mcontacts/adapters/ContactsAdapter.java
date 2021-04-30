@@ -150,8 +150,6 @@ public class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.Contac
                                 DatabaseReference deleteRef = mDatabaseRef.child(Uid).child(key);
                                 deleteRef.removeValue().addOnCompleteListener(task -> {
                                     if (task.isSuccessful()) {
-                                        contactList.remove(pos);
-                                        notifyDataSetChanged();
                                         Toasty.success(mContext, "Successfully Delete Contacts", Toasty.LENGTH_SHORT, true).show();
                                     } else {
                                         Toasty.error(mContext, "Failed to  Delete Contacts", Toasty.LENGTH_SHORT, true).show();

@@ -7,7 +7,11 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.util.Log;
 
+import androidx.lifecycle.LifecycleOwner;
+
+import static com.mudasir.mcontacts.MainActivity.CheckIsOnline;
 import static com.mudasir.mcontacts.home.checkInternet;
+
 public class NetworkChangeReceiver  extends BroadcastReceiver
 {
 
@@ -29,6 +33,8 @@ public class NetworkChangeReceiver  extends BroadcastReceiver
         {
             if (isOnline(context)) {
                 checkInternet(true,context);
+                CheckIsOnline(true,context);
+
                 Log.e("home : ", "Online Connect Intenet ");
             } else {
                 checkInternet(false,context);

@@ -5,8 +5,9 @@
     <string name="update">Update</string>
     <string name="delete">Delete</string>
     <string name="no_internet">No Internet Connection! Please Connect to Internet Connection!</string>
-    <string name="interstitial_full_screen">ca-app-pub-8058404407420215/5138537570</string>
     <string name="phone_no">Phone No</string>
     <string name="name">Name</string>
-
+    <string name="cancel">cancel</string>
+    <string name="banner_ad_unit_id">ca-app-pub-3549373853828953/4344553397</string>
+    <string name="interstitial_full_screen">ca-app-pub-3549373853828953/6712051653</string>
 </resources>

@@ -5,8 +5,14 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.Lifecycle;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
+import androidx.lifecycle.ViewModelStoreOwner;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -20,8 +26,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.net.ConnectivityManager;
@@ -33,6 +41,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.ContactsContract;
 import android.telephony.SmsManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -43,13 +52,30 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.ads.AdError;
 import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 
-import com.google.android.gms.ads.InterstitialAd;
+
+import com.google.android.gms.ads.FullScreenContentCallback;
+import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.initialization.InitializationStatus;
+import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
+import com.google.android.gms.ads.interstitial.InterstitialAd;
+import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.appupdate.AppUpdateOptions;
+import com.google.android.play.core.install.InstallStateUpdatedListener;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.InstallStatus;
+import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.android.play.core.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -75,8 +101,11 @@ import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
 
+import static com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE;
+
 public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks, SwipeRefreshLayout.OnRefreshListener {
 
+    private static final int MY_REQUEST_CODE = 1025;
     static SwipeableRecyclerView recyclerView;
     static SwipeRefreshLayout swipLayout;
     static ContactsAdapter mAdapter;
@@ -89,74 +118,303 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     static FirebaseUser mCurrentUser;
     static String CurrentUserId;
     static TextView tvalert;
+    static ProgressBar progressBar;
+
+
+    private DatabaseReference mRefStatus;
+    String text;
+    private int mpos;
+    private NetworkChangeReceiver mNetworkReceiver;
+    static ActionBar actionBar;
+
+
+
     private SharedPreferences sharedPreferences;
     private SharedPreferences.Editor editor;
 
     public static final String SHARED_PREFS = "sharedPrefs";
     public static final String TEXT = "text";
-    static ProgressBar progressBar;
 
+    private AppUpdateManager appUpdateManager;
+
+    public static HomeViewModel homeViewModel;
+    public static List<CloudContacts> cloudContactsList=new ArrayList<>();
+    private AdView mAdView;
+    private AdRequest mAdRequest;
     private InterstitialAd mInterstitialAd;
 
-    String text;
-    private int mpos;
-    private NetworkChangeReceiver mNetworkReceiver;
-    static ActionBar actionbar;
-
-    private AdView mAdView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        getDatabaseRefAndUserId();
+        homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
 
-        init();
-        if (haveNetworkConnection()) {
-            getDataFromDatabase(this);
 
-            MobileAds.initialize(this,
-                    "ca-app-pub-8058404407420215~3529130369");
+        try {
+            getDatabaseRefAndUserId();
+            init();
+            if (haveNetworkConnection()) {
 
-            mAdView = new AdView(this);
-            mAdView.setAdSize(AdSize.BANNER);
-            mAdView.setAdUnitId("ca-app-pub-8058404407420215/5963722012");
-            mAdView = findViewById(R.id.adView);
-            AdRequest adRequest = new AdRequest.Builder()
-                    .build();
-            mAdView.loadAd(adRequest);
 
-            mAdView.setAdListener(new AdListener() {
-                @Override
-                public void onAdLoaded() {
-                    super.onAdLoaded();
-                }
+                 homeViewModel.getUsers(CurrentUserId).observe(this, new Observer<List<CloudContacts>>() {
+                     @Override
+                     public void onChanged(List<CloudContacts> cloudContacts) {
 
-                @Override
-                public void onAdFailedToLoad(int i) {
-                    super.onAdFailedToLoad(i);
-                }
-            });
+                         if (!cloudContacts.isEmpty()){
+                             cloudContactsList=cloudContacts;
+                             mAdapter=new ContactsAdapter(home.this,cloudContacts,CurrentUserId);
+                             recyclerView.setAdapter(mAdapter);
 
-        } else {
-            progressBar.setVisibility(View.GONE);
-            tvalert.setVisibility(View.VISIBLE);
-            tvalert.setText(R.string.no_internet);
+                             progressBar.setVisibility(View.GONE);
+                             actionBar.setSubtitle("Contacts Size: "+cloudContacts.size());
+                             swipLayout.setRefreshing(false);
+                         }
+                         else{
+                             swipLayout.setRefreshing(false);
+                             // if has not Data
+                             progressBar.setVisibility(View.GONE);
+                             tvalert.setVisibility(View.VISIBLE);
+                             tvalert.setBackgroundColor(Color.BLUE);
+                             tvalert.setText(R.string.no_contacts);
+
+                             Toasty.info(home.this, "No Data Found!", Toast.LENGTH_SHORT, true).show();
+                         }
+
+
+                     }
+                 });
+
+
+                MobileAds.initialize(this, initializationStatus -> {
+
+                });
+
+
+                mAdView = findViewById(R.id.adView);
+                mAdRequest = new AdRequest.Builder().build();
+                mAdView.loadAd(mAdRequest);
+
+                mAdView.setAdListener(new AdListener() {
+                    @Override
+                    public void onAdLoaded() {
+                        super.onAdLoaded();
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        super.onAdFailedToLoad(loadAdError);
+                        Toasty.error(home.this,loadAdError.getMessage(),Toasty.LENGTH_SHORT,true).show();
+                    }
+                });
+
+
+                AdRequest adRequest = new AdRequest.Builder().build();
+                InterstitialAd.load(this,getString(R.string.interstitial_full_screen), adRequest, new InterstitialAdLoadCallback() {
+                    @Override
+                    public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
+                        // The mInterstitialAd reference will be null until
+                        // an ad is loaded.
+                        mInterstitialAd = interstitialAd;
+                        // Log.i(TAG, "onAdLoaded");
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        // Handle the error
+
+                        //  Log.i(TAG, loadAdError.getMessage());
+                        mInterstitialAd = null;
+                    }
+                });
+
+                mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback(){
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                        // Called when fullscreen content is dismissed.
+                        //    Log.d("TAG", "The ad was dismissed.");
+                    }
+
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(AdError adError) {
+                        // Called when fullscreen content failed to show.
+                        //  Log.d("TAG", "The ad failed to show.");
+                    }
+
+                    @Override
+                    public void onAdShowedFullScreenContent() {
+                        // Called when fullscreen content is shown.
+                        // Make sure to set your reference to null so you don't
+                        // show it a second time.
+                        mInterstitialAd = null;
+                        // Log.d("TAG", "The ad was shown.");
+                    }
+                });
+
+
+
+
+                 appUpdateManager = AppUpdateManagerFactory.create(this);
+
+                 // Returns an intent object that you use to check for an update.
+                Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+                // Checks that the platform will allow the specified type of update.
+
+                appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+                    if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                            // This example applies an immediate update. To apply a flexible update
+                            // instead, pass in AppUpdateType.FLEXIBLE
+                            && appUpdateInfo.isUpdateTypeAllowed(IMMEDIATE)) {
+                        // Request the update.
+                        try {
+
+                            appUpdateManager.startUpdateFlowForResult(
+                                    // Pass the intent that is returned by 'getAppUpdateInfo()'.
+                                    appUpdateInfo,
+                                    // The current activity making the update request.
+                                    this,
+                                    // Or pass 'AppUpdateType.FLEXIBLE' to newBuilder() for
+                                    // flexible updates.
+                                    AppUpdateOptions.newBuilder(IMMEDIATE)
+                                            .setAllowAssetPackDeletion(true)
+                                            .build(),
+                                    // Include a request code to later monitor this update request.
+                                    MY_REQUEST_CODE);
+
+                        } catch (IntentSender.SendIntentException e) {
+                            e.printStackTrace();
+                        }
+
+                    }
+                });
+
+
+            } else {
+                progressBar.setVisibility(View.GONE);
+                tvalert.setVisibility(View.VISIBLE);
+                tvalert.setText(R.string.no_internet);
+                actionBar.setSubtitle("No Internet!");
+
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
 
-        initSharedPreferences();
+    }
+
+    private void showInterstialAd(){
+        if (mInterstitialAd != null) {
+            mInterstitialAd.show(home.this);
+        } else {
+            Log.d("TAG", "The interstitial ad wasn't ready yet.");
+        }
+    }
+
+
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        try {
+                if (mAuth.getCurrentUser()!=null){
+
+                }
+                else{
+                    Intent intent=new Intent(this, MainActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                    startActivity(intent);
+                    finish();
+                }
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        try {
+            if(haveNetworkConnection()){
+
+                appUpdateManager
+                        .getAppUpdateInfo()
+                        .addOnSuccessListener(appUpdateInfo -> {
+                            // If the update is downloaded but not installed,
+                            // notify the user to complete the update.
+                            if (appUpdateInfo.installStatus() == InstallStatus.DOWNLOADED) {
+                                popupSnackbarForCompleteUpdate();
+                            }
+                            if (appUpdateInfo.updateAvailability()
+                                    == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                                // If an in-app update is already running, resume the update.
+                                try {
+                                    appUpdateManager.startUpdateFlowForResult(
+                                            appUpdateInfo,
+                                            IMMEDIATE,
+                                            this,
+                                            MY_REQUEST_CODE);
+                                } catch (IntentSender.SendIntentException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+
+
+
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
 
     }
 
+    // Displays the snackbar notification and call to action.
+    private void popupSnackbarForCompleteUpdate() {
+
+
+        try {
+            Snackbar.make(findViewById(R.id.home_Activity), "An update has just been downloaded.",
+                    Snackbar.LENGTH_INDEFINITE)
+                    .setAction("RESTART", view ->appUpdateManager.completeUpdate())
+                    .setActionTextColor(
+                     getResources().getColor(R.color.snackbar_action_text_color))
+                    .show();
+        } catch (Resources.NotFoundException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+    private void initSharedPreferences() {
+
+        try {
+            sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
+            editor = sharedPreferences.edit();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
+    }
+
     private void registerNetworkBroadcastForNougat() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            registerReceiver(mNetworkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-        }
+
     }
 
     protected void unregisterNetworkChanges() {
@@ -168,154 +426,137 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-    public static boolean checkInternet(boolean value, Context context) {
-        if (value) {
-            tvalert.setText("We are back !!!");
-            tvalert.setBackgroundColor(Color.GREEN);
-            tvalert.setTextColor(Color.WHITE);
-            Handler handler = new Handler();
-            Runnable delayrunnable = new Runnable() {
-                @Override
-                public void run() {
-                    tvalert.setVisibility(View.GONE);
-                    getDataFromDatabase(context);
-                }
-            };
-            handler.postDelayed(delayrunnable, 3000);
-            return true;
-        } else {
-            tvalert.setVisibility(View.VISIBLE);
-            tvalert.setText("Could not Connect to internet");
-            tvalert.setBackgroundColor(Color.RED);
-            tvalert.setTextColor(Color.WHITE);
+    public static boolean  checkInternet(boolean value, Context context) {
 
-            Handler handler = new Handler();
-            Runnable delayrunnable = new Runnable() {
-                @Override
-                public void run() {
-                    tvalert.setVisibility(View.VISIBLE);
-                    tvalert.setText(R.string.no_internet);
-                    recyclerView.setAdapter(null);
-                    dynamiccontactList.clear();
-                }
-            };
-            handler.postDelayed(delayrunnable, 3000);
+        try {
+            if (value) {
+                tvalert.setText("We are back !!!");
+                tvalert.setBackgroundColor(Color.GREEN);
+                tvalert.setTextColor(Color.WHITE);
+                Handler handler = new Handler();
+                Runnable delayrunnable = new Runnable() {
+                    @Override
+                    public void run() {
 
-            return false;
-        }
-    }
+                        tvalert.setVisibility(View.GONE);
+                        mAdapter=new ContactsAdapter(context,cloudContactsList,CurrentUserId);
+                        recyclerView.setAdapter(mAdapter);
+                        actionBar.setSubtitle("Contacts Size: "+cloudContactsList.size());
 
-    private static void fillintoRecyclerView(Context context) {
-
-        mAdapter = new ContactsAdapter(context, dynamiccontactList, CurrentUserId);
-        recyclerView.setAdapter(mAdapter);
-        // getSupportActionBar().setSubtitle("Contacts Count: " + dynamiccontactList.size());
-        // if has Data
-        progressBar.setVisibility(View.GONE);
-        tvalert.setVisibility(View.GONE);
-
-    }
-
-    public static void getDataFromDatabase(Context context) {
-
-        mDatabaseRef.child(CurrentUserId).addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-
-                if (snapshot.exists()) {
-                    dynamiccontactList.clear();
-                    for (DataSnapshot shot : snapshot.getChildren()) {
-                        CloudContacts contacts = shot.getValue(CloudContacts.class);
-                        dynamiccontactList.add(contacts);
                     }
-                    fillintoRecyclerView(context);
-                    swipLayout.setRefreshing(false);
-                    actionbar.setSubtitle("Contacts Count: " + dynamiccontactList.size());
+                };
+                handler.postDelayed(delayrunnable, 3000);
+                return true;
+            } else {
+                tvalert.setVisibility(View.VISIBLE);
+                tvalert.setText("Could not Connect to internet");
+                tvalert.setBackgroundColor(Color.RED);
+                tvalert.setTextColor(Color.WHITE);
 
+                Handler handler = new Handler();
+                Runnable delayrunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        tvalert.setVisibility(View.VISIBLE);
+                        tvalert.setText(R.string.no_internet);
+                        actionBar.setSubtitle("No Internet!");
+                        recyclerView.setAdapter(null);
+                        dynamiccontactList.clear();
+                    }
+                };
+                handler.postDelayed(delayrunnable, 3000);
 
-                } else {
-                    swipLayout.setRefreshing(false);
-                    // if has not Data
-                    progressBar.setVisibility(View.GONE);
-                    tvalert.setVisibility(View.VISIBLE);
-                    tvalert.setBackgroundColor(Color.BLUE);
-                    tvalert.setText(R.string.no_contacts);
-
-                    Toasty.info(context, "No Data Found!", Toast.LENGTH_SHORT, true).show();
-                }
 
             }
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-
-            }
-        });
-
-
+        return false;
     }
+
 
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        unregisterNetworkChanges();
+
+        try {
+            unregisterNetworkChanges();
+            cloudContactsList.clear();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
     }
 
-    private void initSharedPreferences() {
-        sharedPreferences = getSharedPreferences(SHARED_PREFS, MODE_PRIVATE);
-        editor = sharedPreferences.edit();
-    }
 
     private void getDatabaseRefAndUserId() {
-        mDatabaseRef = FirebaseDatabase.getInstance().getReference("Contacts");
-        mAuth = FirebaseAuth.getInstance();
-        mCurrentUser = mAuth.getCurrentUser();
-        CurrentUserId = mCurrentUser.getUid();
+
+        try {
+            mDatabaseRef = FirebaseDatabase.getInstance().getReference("Contacts");
+            mRefStatus = mDatabaseRef;
+            mAuth = FirebaseAuth.getInstance();
+            mCurrentUser = mAuth.getCurrentUser();
+            CurrentUserId = mCurrentUser.getUid();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
     }
 
     private void init() {
-        dynamiccontactList = new ArrayList<>();
-        actionbar = getSupportActionBar();
-        actionbar.setTitle("MContacts- Backup on Cloud");
-        recyclerView = findViewById(R.id.rv_contacts);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setHasFixedSize(true);
-
-        swipLayout = findViewById(R.id.swipe_layout);
-        swipLayout.setOnRefreshListener(this);
-
-        swipLayout.setColorSchemeResources(R.color.colorAccent,
-                android.R.color.holo_green_dark,
-                android.R.color.holo_orange_dark,
-                android.R.color.holo_blue_dark);
 
 
-        recyclerView.setListener(new SwipeLeftRightCallback.Listener() {
-            @Override
-            public void onSwipedLeft(int position) {
-                //call Code Here
-                mpos = position;
-                String phone = dynamiccontactList.get(mpos).getPhone();
-                dialContactPhone(phone);
-                mAdapter.notifyDataSetChanged();
-            }
+        try {
+            dynamiccontactList = new ArrayList<>();
+            actionBar=getSupportActionBar();
+            actionBar.setTitle("MContacts- Backup on Cloud");
+            recyclerView = findViewById(R.id.rv_contacts);
+            recyclerView.setLayoutManager(new LinearLayoutManager(this));
+            recyclerView.setHasFixedSize(true);
 
-            @Override
-            public void onSwipedRight(int position) {
-                //Message Code here
-                mpos = position;
-                String phone = dynamiccontactList.get(mpos).getPhone();
-                sendSms(phone);
-                mAdapter.notifyDataSetChanged();
-            }
-        });
+            swipLayout = findViewById(R.id.swipe_layout);
+            swipLayout.setOnRefreshListener(this);
 
-        progressBar = findViewById(R.id.progress);
-        tvalert = findViewById(R.id.txtAlert);
-        progressBar.setVisibility(View.VISIBLE);
-        mNetworkReceiver = new NetworkChangeReceiver();
-        registerNetworkBroadcastForNougat();
+            swipLayout.setColorSchemeResources(R.color.colorAccent,
+                    android.R.color.holo_green_dark,
+                    android.R.color.holo_orange_dark,
+                    android.R.color.holo_blue_dark);
+
+
+            recyclerView.setListener(new SwipeLeftRightCallback.Listener() {
+                @Override
+                public void onSwipedLeft(int position) {
+                    //call Code Here
+                    mpos = position;
+                    String phone = dynamiccontactList.get(mpos).getPhone();
+                    dialContactPhone(phone);
+                    mAdapter.notifyDataSetChanged();
+                }
+
+                @Override
+                public void onSwipedRight(int position) {
+                    //Message Code here
+                    mpos = position;
+                    String phone = dynamiccontactList.get(mpos).getPhone();
+                    sendSms(phone);
+                    mAdapter.notifyDataSetChanged();
+                }
+            });
+
+            progressBar = findViewById(R.id.progress);
+            tvalert = findViewById(R.id.txtAlert);
+            progressBar.setVisibility(View.VISIBLE);
+            mNetworkReceiver = new NetworkChangeReceiver();
+            registerNetworkBroadcastForNougat();
+
+            initSharedPreferences();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
+
     }
 
     private static final String[] PROJECTION = new String[]{
@@ -328,55 +569,64 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
 
-        getMenuInflater().inflate(R.menu.home_menu, menu);
+        try {
+            getMenuInflater().inflate(R.menu.home_menu, menu);
 
-        MenuItem searchItem = menu.findItem(R.id.action_search);
-        androidx.appcompat.widget.SearchView searchView = (androidx.appcompat.widget.SearchView) searchItem.getActionView();
-        searchView.setImeOptions(EditorInfo.IME_ACTION_DONE);
+            MenuItem searchItem = menu.findItem(R.id.action_search);
+            SearchView searchView = (SearchView) searchItem.getActionView();
+            searchView.setImeOptions(EditorInfo.IME_ACTION_DONE);
 
-        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                return false;
-            }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-
-                try {
-                    if (haveNetworkConnection()) {
-                        if (!mAdapter.equals(null)) {
-                            mAdapter.getFilter().filter(newText);
-                        } else {
-                            Toasty.error(home.this, "No Data!", Toasty.LENGTH_SHORT, true).show();
-                        }
-                    } else {
-                        Toasty.error(home.this, "No Internet Connection!", Toasty.LENGTH_SHORT, true).show();
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
+            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                @Override
+                public boolean onQueryTextSubmit(String query) {
+                    return false;
                 }
 
-                return false;
+                @Override
+                public boolean onQueryTextChange(String newText) {
 
-            }
-        });
+                    try {
+                        if (haveNetworkConnection()) {
+                            if (!mAdapter.equals(null)) {
+                                mAdapter.getFilter().filter(newText);
+                            } else {
+                                Toasty.error(home.this, "No Data!", Toasty.LENGTH_SHORT, true).show();
+                            }
+                        } else {
+                            Toasty.error(home.this, "No Internet Connection!", Toasty.LENGTH_SHORT, true).show();
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+
+                    return false;
+
+                }
+            });
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
 
         return true;
     }
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem item = menu.findItem(R.id.btnSaveAll);
 
-        text = sharedPreferences.getString(TEXT, "read");
+        try {
+            MenuItem item = menu.findItem(R.id.btnSaveAll);
+            text = sharedPreferences.getString(TEXT, "read");
 
-        if (text.equals("read")) {
-            item.setTitle("Save All Contacts");
+            if (text.equals("read")) {
+                item.setTitle("Save All Contacts");
+            }
+            if (text.equals("delete")) {
+                item.setTitle("Delete All Contacts");
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
-        if (text.equals("delete")) {
-            item.setTitle("Delete All Contacts");
-        }
+
         return super.onPrepareOptionsMenu(menu);
     }
 
@@ -406,22 +656,10 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 if (text.equals("read")) {
                     if (haveNetworkConnection()) {
                         ReadContacts();
-                        mInterstitialAd = new InterstitialAd(this);
-                        mInterstitialAd.setAdUnitId(getString(R.string.interstitial_full_screen));
-                        AdRequest adRequest = new AdRequest.Builder()
-                                .build();
-                        mInterstitialAd.loadAd(adRequest);
-                        mInterstitialAd.setAdListener(new AdListener() {
-                            @Override
-                            public void onAdLoaded() {
-                                super.onAdLoaded();
-                                showInterstitial();
-                            }
-                        });
-
                         editor.putString(TEXT, "delete");
                         editor.apply();
                         item.setTitle("Delete All Contacts");
+                        showInterstialAd();
                     } else {
                         Toasty.error(this, "Can not Read And Store Contacts While You dont have internet Connection", Toasty.LENGTH_SHORT, true).show();
                     }
@@ -443,46 +681,57 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         return super.onOptionsItemSelected(item);
     }
 
-    private void showInterstitial() {
-        if (mInterstitialAd.isLoaded()) {
-            mInterstitialAd.show();
-        }
-    }
+
 
     private void DeleteAllContacts(String uid, MenuItem item) {
 
-        new AlertDialog.Builder(this)
-                .setTitle("Confirmation Message")
-                .setMessage("Are You Sure You Want to Delete All Contacts From Cloud")
-                .setPositiveButton("YES", (dialog, which) -> {
 
-                    ProgressDialog progressDialog = new ProgressDialog(this);
-                    progressDialog.setCancelable(false);
-                    progressDialog.setTitle("Deleting...");
-                    progressDialog.setMessage("Deleting Contacts From Cloud");
-                    progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-                    progressDialog.show();
-                    mDatabaseRef.child(uid).removeValue().addOnSuccessListener(aVoid -> {
+        try {
+            new AlertDialog.Builder(this)
+                    .setTitle("Confirmation Message")
+                    .setMessage("Are You Sure You Want to Delete All Contacts From Cloud")
+                    .setPositiveButton("YES", (dialog, which) -> {
 
-                        recyclerView.setAdapter(null);
-                        getSupportActionBar().setSubtitle("");
-                        editor.putString(TEXT, "read");
-                        editor.apply();
-                        item.setTitle("Save All Contacts");
-                        progressDialog.dismiss();
+                        ProgressDialog progressDialog = new ProgressDialog(this);
+                        progressDialog.setCancelable(false);
+                        progressDialog.setTitle("Deleting...");
+                        progressDialog.setMessage("Deleting Contacts From Cloud");
+                        progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+                        progressDialog.show();
+                        mDatabaseRef.child(uid).removeValue().addOnSuccessListener(aVoid -> {
 
-                    });
+                            recyclerView.setAdapter(null);
+                            getSupportActionBar().setSubtitle("");
+
+                            editor.putString(TEXT, "read");
+                            editor.apply();
+                            item.setTitle("Save All Contacts");
+                            progressDialog.dismiss();
+
+                        });
 
 
-                })
-                .setNegativeButton("NO", (dialog, which) -> dialog.cancel()).create().show();
+                    })
+                    .setNegativeButton("NO", (dialog, which) -> dialog.cancel()).create().show();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
+
     }
 
     private void logout() {
-        FirebaseAuth.getInstance().signOut();
-        Intent intent = new Intent(home.this, MainActivity.class);
-        startActivity(intent);
-        finish();
+
+        try {
+            FirebaseAuth.getInstance().signOut();
+            Intent intent = new Intent(home.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
+
     }
 
 
@@ -496,11 +745,45 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     @Override
     public void onRefresh() {
-        if (haveNetworkConnection()) {
-            getDataFromDatabase(this);
-        } else {
 
+
+        try {
+            if (haveNetworkConnection()) {
+                homeViewModel.getUsers(CurrentUserId).observe(this, new Observer<List<CloudContacts>>() {
+                    @Override
+                    public void onChanged(List<CloudContacts> cloudContacts) {
+
+                        if (!cloudContacts.isEmpty()){
+
+                            mAdapter=new ContactsAdapter(home.this,cloudContacts,CurrentUserId);
+                            recyclerView.setAdapter(mAdapter);
+
+                            progressBar.setVisibility(View.GONE);
+                            actionBar.setSubtitle("Contacts Size: "+cloudContacts.size());
+                            swipLayout.setRefreshing(false);
+                        }
+                        else{
+                            swipLayout.setRefreshing(false);
+                            // if has not Data
+                            progressBar.setVisibility(View.GONE);
+                            tvalert.setVisibility(View.VISIBLE);
+                            tvalert.setBackgroundColor(Color.BLUE);
+                            tvalert.setText(R.string.no_contacts);
+
+                            Toasty.info(home.this, "No Data Found!", Toast.LENGTH_SHORT, true).show();
+                        }
+
+
+                    }
+                });
+
+            } else {
+
+            }
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
+
 
     }
 
@@ -511,12 +794,16 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            // setup a progress dialog
             progressDialog = new ProgressDialog(home.this);
-            progressDialog.setTitle("Fetching Contacts");
-            progressDialog.setMessage("Wait until it finishes...");
-            progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
             progressDialog.setCancelable(false);
+            progressDialog.setCanceledOnTouchOutside(false);
+            progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+            progressDialog.setTitle("Creating A backUp");
+            progressDialog.setMessage("please wait we are making a backup of your contacts on cloud...");
+            // make a button
             progressDialog.show();
+
         }
 
         @Override
@@ -531,29 +818,28 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                     final int nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
                     final int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
                     String name, number;
+                    int contactsCounter = 0;
                     while (cursor.moveToNext()) {
                         name = cursor.getString(nameIndex);
                         number = cursor.getString(numberIndex);
                         number = number.replace(" ", "");
                         if (!mobileNoSet.contains(number)) {
+                            String key = mDatabaseRef.push().getKey();
+                            CloudContacts contacts = new CloudContacts(key, name, number);
+                            Map<String, Object> postValues = contacts.toMap();
+                            Map<String, Object> childUpdates = new HashMap<>();
+                            childUpdates.put(key, postValues);
+                            mDatabaseRef.child(CurrentUserId).updateChildren(childUpdates);
                             contactList.add(new Contact(name, number));
                             mobileNoSet.add(number);
                         }
                     }
 
+
                 } finally {
                     cursor.close();
-                    for (Contact contact : contactList) {
-                        String key = mDatabaseRef.push().getKey();
-                        CloudContacts contacts = new CloudContacts(key, contact.getName(), contact.getPhoneno());
-                        Map<String, Object> postValues = contacts.toMap();
-                        Map<String, Object> childUpdates = new HashMap<>();
-                        childUpdates.put(key, postValues);
-                        mDatabaseRef.child(CurrentUserId).updateChildren(childUpdates);
-                    }
                     contactList.clear();
                     mobileNoSet.clear();
-
                 }
             }
 
@@ -563,17 +849,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         @Override
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
-
-
-            Handler handler = new Handler();
-            handler.postDelayed(() -> {
-
-                progressDialog.dismiss();
-
-
-            }, 5000);
-
-
+            progressDialog.dismiss();
         }
 
 
@@ -619,6 +895,11 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == AppSettingsDialog.DEFAULT_SETTINGS_REQ_CODE) {
+        }
+        if (requestCode == MY_REQUEST_CODE) {
+            if (resultCode != RESULT_OK) {
+                Toasty.error(this,"Update flow failed.",Toasty.LENGTH_SHORT,true).show();
+            }
         }
     }
 

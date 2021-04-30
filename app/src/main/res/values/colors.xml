@@ -10,4 +10,5 @@
     <color name="white">#FFFFFFFF</color>
 
     <color name="green">#80c904</color>
+    <color name="snackbar_action_text_color">#0B2EEC</color>
 </resources>

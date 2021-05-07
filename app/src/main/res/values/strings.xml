@@ -10,4 +10,5 @@
     <string name="cancel">cancel</string>
     <string name="banner_ad_unit_id">ca-app-pub-3549373853828953/4344553397</string>
     <string name="interstitial_full_screen">ca-app-pub-3549373853828953/6712051653</string>
+    <string name="import_phone_contacts">Import Phone Contacts</string>
 </resources>

@@ -2,42 +2,27 @@ package com.mudasir.mcontacts.adapters;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.net.Uri;
-import android.os.Build;
-import android.transition.TransitionManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.Filter;
 import android.widget.Filterable;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
-import androidx.appcompat.view.menu.MenuView;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.app.ActivityCompat;
-import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.mudasir.mcontacts.AddContactsActivity;
-import com.mudasir.mcontacts.CloudContacts;
+import com.mudasir.mcontacts.activities.AddContactsActivity;
+import com.mudasir.mcontacts.models.CloudContacts;
 
 import com.mudasir.mcontacts.R;
-import com.mudasir.mcontacts.listeners.OnContactsClickListener;
-import com.tsuryo.swipeablerv.SwipeableRecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -138,29 +123,36 @@ public class ContactsAdapter extends RecyclerView.Adapter<ContactsAdapter.Contac
 
                 if (haveNetworkConnection()) {
 
-                    new AlertDialog.Builder(mContext)
-                            .setTitle("Delete Contact")
-                            .setMessage("Are You Sure You want to Delete Contact From Cloud.")
-                            .setIcon(R.drawable.ic_delete)
-                            .setPositiveButton("Yes", (dialog, which) -> {
-                                dialog.dismiss();
-                                int pos = getAdapterPosition();
-                                String key = contactList.get(pos).getKey();
-                                DatabaseReference mDatabaseRef = FirebaseDatabase.getInstance().getReference("Contacts");
-                                DatabaseReference deleteRef = mDatabaseRef.child(Uid).child(key);
-                                deleteRef.removeValue().addOnCompleteListener(task -> {
-                                    if (task.isSuccessful()) {
-                                        Toasty.success(mContext, "Successfully Delete Contacts", Toasty.LENGTH_SHORT, true).show();
-                                    } else {
-                                        Toasty.error(mContext, "Failed to  Delete Contacts", Toasty.LENGTH_SHORT, true).show();
-                                    }
-                                });
+                    try {
+                        new AlertDialog.Builder(mContext)
+                                .setTitle("Delete Contact")
+                                .setMessage("Are You Sure You want to Delete Contact From Cloud.")
+                                .setIcon(R.drawable.ic_delete)
+                                .setPositiveButton("Yes", (dialog, which) -> {
+                                    dialog.dismiss();
+                                    int pos = getAdapterPosition();
+                                    String key = contactList.get(pos).getKey();
+                                    DatabaseReference mDatabaseRef = FirebaseDatabase.getInstance().getReference("Contacts");
+                                    DatabaseReference deleteRef = mDatabaseRef.child(Uid).child(key);
+                                    deleteRef.removeValue().addOnCompleteListener(task -> {
+                                        if (task.isSuccessful()) {
+                                          /*  contactList.remove(pos);
+                                            notifyItemRemoved(pos);
+                                            notifyItemRangeChanged(pos,contactList.size());*/
+                                            Toasty.success(mContext, "Successfully Delete Contacts", Toasty.LENGTH_SHORT, true).show();
+                                        } else {
+                                            Toasty.error(mContext, "Failed to  Delete Contacts", Toasty.LENGTH_SHORT, true).show();
+                                        }
+                                    });
 
-                            })
-                            .setNegativeButton("Cancel", (dialog, which) -> {
-                                dialog.cancel();
+                                })
+                                .setNegativeButton("Cancel", (dialog, which) -> {
+                                    dialog.cancel();
 
-                            }).create().show();
+                                }).create().show();
+                    } catch (Exception exception) {
+                        exception.printStackTrace();
+                    }
 
 
                 } else {

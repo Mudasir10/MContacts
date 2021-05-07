@@ -5,12 +5,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/home_Activity"
-    tools:context=".home">
+    tools:context=".activities.home">
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:layout_alignParentEnd="true"
         android:layout_alignParentTop="true"
         android:layout_alignParentStart="true"
+        android:layout_above="@+id/adView"
         android:id="@+id/swipe_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -62,6 +63,7 @@
         android:layout_alignParentBottom="true"
         ads:adSize="BANNER"
         ads:adUnitId="@string/banner_ad_unit_id">
+
     </com.google.android.gms.ads.AdView>
 
 </RelativeLayout>

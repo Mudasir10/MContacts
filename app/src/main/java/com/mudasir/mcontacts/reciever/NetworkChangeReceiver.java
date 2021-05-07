@@ -7,10 +7,8 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.util.Log;
 
-import androidx.lifecycle.LifecycleOwner;
-
-import static com.mudasir.mcontacts.MainActivity.CheckIsOnline;
-import static com.mudasir.mcontacts.home.checkInternet;
+import static com.mudasir.mcontacts.activities.MainActivity.CheckIsOnline;
+import static com.mudasir.mcontacts.activities.home.checkInternet;
 
 public class NetworkChangeReceiver  extends BroadcastReceiver
 {

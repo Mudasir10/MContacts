@@ -1,4 +1,4 @@
-package com.mudasir.mcontacts;
+package com.mudasir.mcontacts.models;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package com.mudasir.mcontacts;
+package com.mudasir.mcontacts.models;
 
 public class Contact {
     private String name;

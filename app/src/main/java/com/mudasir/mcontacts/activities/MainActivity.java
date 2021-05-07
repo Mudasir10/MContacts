@@ -1,4 +1,4 @@
-package com.mudasir.mcontacts;
+package com.mudasir.mcontacts.activities;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -20,7 +19,9 @@ import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.GoogleAuthProvider;
+import com.mudasir.mcontacts.R;
 import com.mudasir.mcontacts.reciever.NetworkChangeReceiver;
 
 import es.dmoral.toasty.Toasty;
@@ -29,12 +30,10 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int RC_SIGN_IN = 1;
     private FirebaseAuth mAuth;
-
     private GoogleSignInClient mGoogleSignInClient;
     private NetworkChangeReceiver mNetworkReceiver;
-
     public static boolean connection=false;
-
+    private FirebaseUser mCurrentUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,10 +42,9 @@ public class MainActivity extends AppCompatActivity {
 
         mNetworkReceiver = new NetworkChangeReceiver();
         registerNetworkBroadcastForNougat();
-
-
         if (connection){
             mAuth = FirebaseAuth.getInstance();
+            mCurrentUser=mAuth.getCurrentUser();
             createRequest();
         }else{
             Toasty.info(this,"please connect internet then try again!",Toasty.LENGTH_SHORT).show();
@@ -69,22 +67,12 @@ public class MainActivity extends AppCompatActivity {
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestEmail()
                 .build();
-
         mGoogleSignInClient= GoogleSignIn.getClient(this,gso);
     }
 
     private void signIn() {
-
             Intent signInIntent = mGoogleSignInClient.getSignInIntent();
             startActivityForResult(signInIntent, RC_SIGN_IN);
-
-
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
     }
 
     @Override
@@ -113,8 +101,9 @@ public class MainActivity extends AppCompatActivity {
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
                         Intent intent=new Intent(MainActivity.this, home.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                         startActivity(intent);
-                        finish();
 
                     } else {
                         Toast.makeText(MainActivity.this, "Error While Signing In.", Toast.LENGTH_SHORT).show();

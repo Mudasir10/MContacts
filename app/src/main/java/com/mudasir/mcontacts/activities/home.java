@@ -1,21 +1,12 @@
-package com.mudasir.mcontacts;
+package com.mudasir.mcontacts.activities;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.lifecycle.Lifecycle;
-import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
-import androidx.lifecycle.ViewModelStoreOwner;
-import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.Manifest;
@@ -28,7 +19,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -40,14 +30,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.ContactsContract;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
-import android.widget.EditText;
-import android.widget.Filter;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -55,15 +42,12 @@ import android.widget.Toast;
 import com.google.android.gms.ads.AdError;
 import com.google.android.gms.ads.AdListener;
 import com.google.android.gms.ads.AdRequest;
-import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 
 
 import com.google.android.gms.ads.FullScreenContentCallback;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
-import com.google.android.gms.ads.initialization.InitializationStatus;
-import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
 import com.google.android.gms.ads.interstitial.InterstitialAd;
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
 import com.google.android.material.snackbar.Snackbar;
@@ -71,8 +55,6 @@ import com.google.android.play.core.appupdate.AppUpdateInfo;
 import com.google.android.play.core.appupdate.AppUpdateManager;
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
 import com.google.android.play.core.appupdate.AppUpdateOptions;
-import com.google.android.play.core.install.InstallStateUpdatedListener;
-import com.google.android.play.core.install.model.AppUpdateType;
 import com.google.android.play.core.install.model.InstallStatus;
 import com.google.android.play.core.install.model.UpdateAvailability;
 import com.google.android.play.core.tasks.Task;
@@ -84,9 +66,12 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.mudasir.mcontacts.R;
 import com.mudasir.mcontacts.adapters.ContactsAdapter;
 
 import com.mudasir.mcontacts.reciever.NetworkChangeReceiver;
+import com.mudasir.mcontacts.models.CloudContacts;
+import com.mudasir.mcontacts.models.Contact;
 import com.tsuryo.swipeablerv.SwipeLeftRightCallback;
 import com.tsuryo.swipeablerv.SwipeableRecyclerView;
 
@@ -103,13 +88,13 @@ import pub.devrel.easypermissions.EasyPermissions;
 
 import static com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE;
 
-public class home extends AppCompatActivity implements EasyPermissions.PermissionCallbacks, SwipeRefreshLayout.OnRefreshListener {
+public class home extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener {
 
     private static final int MY_REQUEST_CODE = 1025;
     static SwipeableRecyclerView recyclerView;
     static SwipeRefreshLayout swipLayout;
     static ContactsAdapter mAdapter;
-    List<Contact> contactList = new ArrayList<>();
+
 
     static List<CloudContacts> dynamiccontactList;
 
@@ -128,7 +113,6 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     static ActionBar actionBar;
 
 
-
     private SharedPreferences sharedPreferences;
     private SharedPreferences.Editor editor;
 
@@ -137,127 +121,33 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     private AppUpdateManager appUpdateManager;
 
-    public static HomeViewModel homeViewModel;
-    public static List<CloudContacts> cloudContactsList=new ArrayList<>();
+
+
+    private int check_IF_USER_IMPORTS_CONTACTS = 10;
+
+
+    private static List<CloudContacts> cloudContacts;
+
+
     private AdView mAdView;
     private AdRequest mAdRequest;
     private InterstitialAd mInterstitialAd;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        homeViewModel = new ViewModelProvider(this).get(HomeViewModel.class);
 
-
-        try {
             getDatabaseRefAndUserId();
             init();
             if (haveNetworkConnection()) {
 
+                getUsersFromDataBase(CurrentUserId,this);
 
-                 homeViewModel.getUsers(CurrentUserId).observe(this, new Observer<List<CloudContacts>>() {
-                     @Override
-                     public void onChanged(List<CloudContacts> cloudContacts) {
+                appUpdateManager = AppUpdateManagerFactory.create(this);
 
-                         if (!cloudContacts.isEmpty()){
-                             cloudContactsList=cloudContacts;
-                             mAdapter=new ContactsAdapter(home.this,cloudContacts,CurrentUserId);
-                             recyclerView.setAdapter(mAdapter);
-
-                             progressBar.setVisibility(View.GONE);
-                             actionBar.setSubtitle("Contacts Size: "+cloudContacts.size());
-                             swipLayout.setRefreshing(false);
-                         }
-                         else{
-                             swipLayout.setRefreshing(false);
-                             // if has not Data
-                             progressBar.setVisibility(View.GONE);
-                             tvalert.setVisibility(View.VISIBLE);
-                             tvalert.setBackgroundColor(Color.BLUE);
-                             tvalert.setText(R.string.no_contacts);
-
-                             Toasty.info(home.this, "No Data Found!", Toast.LENGTH_SHORT, true).show();
-                         }
-
-
-                     }
-                 });
-
-
-                MobileAds.initialize(this, initializationStatus -> {
-
-                });
-
-
-                mAdView = findViewById(R.id.adView);
-                mAdRequest = new AdRequest.Builder().build();
-                mAdView.loadAd(mAdRequest);
-
-                mAdView.setAdListener(new AdListener() {
-                    @Override
-                    public void onAdLoaded() {
-                        super.onAdLoaded();
-                    }
-
-                    @Override
-                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                        super.onAdFailedToLoad(loadAdError);
-                        Toasty.error(home.this,loadAdError.getMessage(),Toasty.LENGTH_SHORT,true).show();
-                    }
-                });
-
-
-                AdRequest adRequest = new AdRequest.Builder().build();
-                InterstitialAd.load(this,getString(R.string.interstitial_full_screen), adRequest, new InterstitialAdLoadCallback() {
-                    @Override
-                    public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
-                        // The mInterstitialAd reference will be null until
-                        // an ad is loaded.
-                        mInterstitialAd = interstitialAd;
-                        // Log.i(TAG, "onAdLoaded");
-                    }
-
-                    @Override
-                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
-                        // Handle the error
-
-                        //  Log.i(TAG, loadAdError.getMessage());
-                        mInterstitialAd = null;
-                    }
-                });
-
-                mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback(){
-                    @Override
-                    public void onAdDismissedFullScreenContent() {
-                        // Called when fullscreen content is dismissed.
-                        //    Log.d("TAG", "The ad was dismissed.");
-                    }
-
-                    @Override
-                    public void onAdFailedToShowFullScreenContent(AdError adError) {
-                        // Called when fullscreen content failed to show.
-                        //  Log.d("TAG", "The ad failed to show.");
-                    }
-
-                    @Override
-                    public void onAdShowedFullScreenContent() {
-                        // Called when fullscreen content is shown.
-                        // Make sure to set your reference to null so you don't
-                        // show it a second time.
-                        mInterstitialAd = null;
-                        // Log.d("TAG", "The ad was shown.");
-                    }
-                });
-
-
-
-
-                 appUpdateManager = AppUpdateManagerFactory.create(this);
-
-                 // Returns an intent object that you use to check for an update.
+                // Returns an intent object that you use to check for an update.
                 Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
                 // Checks that the platform will allow the specified type of update.
 
@@ -290,6 +180,32 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 });
 
 
+                MobileAds.initialize(this, initializationStatus -> {
+
+                });
+
+
+
+
+                mAdView = findViewById(R.id.adView);
+                mAdRequest = new AdRequest.Builder().build();
+                mAdView.loadAd(mAdRequest);
+
+                mAdView.setAdListener(new AdListener() {
+                    @Override
+                    public void onAdLoaded() {
+                        super.onAdLoaded();
+                    }
+
+                    @Override
+                    public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                        super.onAdFailedToLoad(loadAdError);
+                        Toasty.error(home.this,loadAdError.getMessage(),Toasty.LENGTH_SHORT,true).show();
+                    }
+                });
+
+
+
             } else {
                 progressBar.setVisibility(View.GONE);
                 tvalert.setVisibility(View.VISIBLE);
@@ -297,20 +213,54 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 actionBar.setSubtitle("No Internet!");
 
             }
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
+
 
     }
 
-    private void showInterstialAd(){
-        if (mInterstitialAd != null) {
-            mInterstitialAd.show(home.this);
-        } else {
-            Log.d("TAG", "The interstitial ad wasn't ready yet.");
-        }
-    }
+   public static void getUsersFromDataBase(String Id,Context mContext){
 
+        if (Id!=null){
+            mDatabaseRef.child(Id).addValueEventListener(new ValueEventListener() {
+                @Override
+                public void onDataChange(@NonNull DataSnapshot snapshot) {
+
+                    if (snapshot.exists()) {
+                        cloudContacts.clear();
+                        for (DataSnapshot shot : snapshot.getChildren()) {
+                            CloudContacts contacts = shot.getValue(CloudContacts.class);
+                            cloudContacts.add(contacts);
+                        }
+
+                        tvalert.setVisibility(View.GONE);
+                        mAdapter=new ContactsAdapter(mContext,cloudContacts,CurrentUserId);
+                        recyclerView.setAdapter(mAdapter);
+                        progressBar.setVisibility(View.GONE);
+                        actionBar.setSubtitle("Contacts Size: " + cloudContacts.size());
+                        swipLayout.setRefreshing(false);
+
+                    }
+                    else{
+                        swipLayout.setRefreshing(false);
+                        progressBar.setVisibility(View.GONE);
+                        tvalert.setVisibility(View.VISIBLE);
+                        tvalert.setBackgroundColor(Color.BLUE);
+                        tvalert.setTextColor(Color.WHITE);
+                        tvalert.setText(R.string.no_contacts);
+                        actionBar.setSubtitle("No Contacts!");
+                    }
+
+                }
+
+                @Override
+                public void onCancelled(@NonNull DatabaseError error) {
+
+                }
+            });
+        }
+
+
+
+    }
 
 
     @Override
@@ -318,19 +268,27 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         super.onStart();
 
         try {
-                if (mAuth.getCurrentUser()!=null){
+            if (mAuth.getCurrentUser() != null) {
 
-                }
-                else{
-                    Intent intent=new Intent(this, MainActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    startActivity(intent);
-                    finish();
-                }
+            } else {
+                Intent intent = new Intent(this, MainActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+            }
         } catch (Exception exception) {
             exception.printStackTrace();
         }
+    }
+
+    private void showInterstialAd(){
+
+        if (mInterstitialAd != null) {
+            mInterstitialAd.show(home.this);
+        } else {
+            Log.d("TAG", "The interstitial ad wasn't ready yet.");
+        }
+
     }
 
     @Override
@@ -338,7 +296,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         super.onResume();
 
         try {
-            if(haveNetworkConnection()){
+            if (haveNetworkConnection()) {
 
                 appUpdateManager
                         .getAppUpdateInfo()
@@ -364,7 +322,6 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                         });
 
 
-
             }
         } catch (Exception exception) {
             exception.printStackTrace();
@@ -380,9 +337,9 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
         try {
             Snackbar.make(findViewById(R.id.home_Activity), "An update has just been downloaded.",
                     Snackbar.LENGTH_INDEFINITE)
-                    .setAction("RESTART", view ->appUpdateManager.completeUpdate())
+                    .setAction("RESTART", view -> appUpdateManager.completeUpdate())
                     .setActionTextColor(
-                     getResources().getColor(R.color.snackbar_action_text_color))
+                            getResources().getColor(R.color.snackbar_action_text_color))
                     .show();
         } catch (Resources.NotFoundException e) {
             e.printStackTrace();
@@ -426,42 +383,44 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-    public static boolean  checkInternet(boolean value, Context context) {
+    public static boolean checkInternet(boolean value, Context context) {
 
         try {
             if (value) {
-                tvalert.setText("We are back !!!");
-                tvalert.setBackgroundColor(Color.GREEN);
-                tvalert.setTextColor(Color.WHITE);
+
+                progressBar.setVisibility(View.VISIBLE);
+
                 Handler handler = new Handler();
                 Runnable delayrunnable = new Runnable() {
                     @Override
                     public void run() {
 
+                        progressBar.setVisibility(View.GONE);
                         tvalert.setVisibility(View.GONE);
-                        mAdapter=new ContactsAdapter(context,cloudContactsList,CurrentUserId);
-                        recyclerView.setAdapter(mAdapter);
-                        actionBar.setSubtitle("Contacts Size: "+cloudContactsList.size());
+                        getUsersFromDataBase(CurrentUserId,context);
+                        actionBar.setSubtitle("Contacts Size: " + cloudContacts.size());
 
                     }
                 };
                 handler.postDelayed(delayrunnable, 3000);
                 return true;
             } else {
-                tvalert.setVisibility(View.VISIBLE);
-                tvalert.setText("Could not Connect to internet");
-                tvalert.setBackgroundColor(Color.RED);
-                tvalert.setTextColor(Color.WHITE);
+                progressBar.setVisibility(View.VISIBLE);
+
+
 
                 Handler handler = new Handler();
                 Runnable delayrunnable = new Runnable() {
                     @Override
                     public void run() {
+                        progressBar.setVisibility(View.GONE);
+                        tvalert.setBackgroundColor(Color.RED);
+                        tvalert.setTextColor(Color.WHITE);
                         tvalert.setVisibility(View.VISIBLE);
                         tvalert.setText(R.string.no_internet);
                         actionBar.setSubtitle("No Internet!");
                         recyclerView.setAdapter(null);
-                        dynamiccontactList.clear();
+
                     }
                 };
                 handler.postDelayed(delayrunnable, 3000);
@@ -476,14 +435,12 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
         try {
             unregisterNetworkChanges();
-            cloudContactsList.clear();
         } catch (Exception exception) {
             exception.printStackTrace();
         }
@@ -509,8 +466,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
 
         try {
-            dynamiccontactList = new ArrayList<>();
-            actionBar=getSupportActionBar();
+            cloudContacts=new ArrayList<>();
+            actionBar = getSupportActionBar();
             actionBar.setTitle("MContacts- Backup on Cloud");
             recyclerView = findViewById(R.id.rv_contacts);
             recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -519,7 +476,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
             swipLayout = findViewById(R.id.swipe_layout);
             swipLayout.setOnRefreshListener(this);
 
-            swipLayout.setColorSchemeResources(R.color.colorAccent,
+            swipLayout.setColorSchemeResources(R.color.green,
                     android.R.color.holo_green_dark,
                     android.R.color.holo_orange_dark,
                     android.R.color.holo_blue_dark);
@@ -530,7 +487,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 public void onSwipedLeft(int position) {
                     //call Code Here
                     mpos = position;
-                    String phone = dynamiccontactList.get(mpos).getPhone();
+                    String phone = cloudContacts.get(mpos).getPhone();
                     dialContactPhone(phone);
                     mAdapter.notifyDataSetChanged();
                 }
@@ -539,7 +496,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                 public void onSwipedRight(int position) {
                     //Message Code here
                     mpos = position;
-                    String phone = dynamiccontactList.get(mpos).getPhone();
+                    String phone = cloudContacts.get(mpos).getPhone();
                     sendSms(phone);
                     mAdapter.notifyDataSetChanged();
                 }
@@ -547,8 +504,8 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
             progressBar = findViewById(R.id.progress);
             tvalert = findViewById(R.id.txtAlert);
-            progressBar.setVisibility(View.VISIBLE);
             mNetworkReceiver = new NetworkChangeReceiver();
+            progressBar.setVisibility(View.VISIBLE);
             registerNetworkBroadcastForNougat();
 
             initSharedPreferences();
@@ -559,11 +516,6 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
     }
 
-    private static final String[] PROJECTION = new String[]{
-            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
-            ContactsContract.Contacts.DISPLAY_NAME,
-            ContactsContract.CommonDataKinds.Phone.NUMBER
-    };
 
 
     @Override
@@ -634,7 +586,15 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
         switch (item.getItemId()) {
             case R.id.btnLogout:
-                logout();
+                new AlertDialog.Builder(this)
+                        .setTitle("Confirmation Message")
+                        .setMessage("Are You Sure You Want to LogOut")
+                        .setPositiveButton("YES", (dialog, which) -> {
+                            dialog.dismiss();
+                            logout();
+                        }).setNegativeButton("No", (dialog, which) -> {
+                            dialog.cancel();
+                        }).create().show();
                 break;
             case R.id.btnAccountDetails:
                 if (haveNetworkConnection()) {
@@ -655,11 +615,12 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
             case R.id.btnSaveAll:
                 if (text.equals("read")) {
                     if (haveNetworkConnection()) {
-                        ReadContacts();
-                        editor.putString(TEXT, "delete");
-                        editor.apply();
-                        item.setTitle("Delete All Contacts");
-                        showInterstialAd();
+
+                        Intent intent=new Intent(home.this,uploadContacts.class);
+                        intent.putExtra("id",CurrentUserId);
+                        startActivityForResult(intent,10);
+
+
                     } else {
                         Toasty.error(this, "Can not Read And Store Contacts While You dont have internet Connection", Toasty.LENGTH_SHORT, true).show();
                     }
@@ -680,7 +641,6 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
         return super.onOptionsItemSelected(item);
     }
-
 
 
     private void DeleteAllContacts(String uid, MenuItem item) {
@@ -708,6 +668,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
                             item.setTitle("Save All Contacts");
                             progressDialog.dismiss();
 
+
                         });
 
 
@@ -719,6 +680,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
 
     }
+
 
     private void logout() {
 
@@ -749,34 +711,7 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
 
         try {
             if (haveNetworkConnection()) {
-                homeViewModel.getUsers(CurrentUserId).observe(this, new Observer<List<CloudContacts>>() {
-                    @Override
-                    public void onChanged(List<CloudContacts> cloudContacts) {
-
-                        if (!cloudContacts.isEmpty()){
-
-                            mAdapter=new ContactsAdapter(home.this,cloudContacts,CurrentUserId);
-                            recyclerView.setAdapter(mAdapter);
-
-                            progressBar.setVisibility(View.GONE);
-                            actionBar.setSubtitle("Contacts Size: "+cloudContacts.size());
-                            swipLayout.setRefreshing(false);
-                        }
-                        else{
-                            swipLayout.setRefreshing(false);
-                            // if has not Data
-                            progressBar.setVisibility(View.GONE);
-                            tvalert.setVisibility(View.VISIBLE);
-                            tvalert.setBackgroundColor(Color.BLUE);
-                            tvalert.setText(R.string.no_contacts);
-
-                            Toasty.info(home.this, "No Data Found!", Toast.LENGTH_SHORT, true).show();
-                        }
-
-
-                    }
-                });
-
+                getUsersFromDataBase(CurrentUserId,this);
             } else {
 
             }
@@ -788,119 +723,85 @@ public class home extends AppCompatActivity implements EasyPermissions.Permissio
     }
 
 
-    public class FetchAllContacts extends AsyncTask<String, Integer, String> {
-        ProgressDialog progressDialog;
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            // setup a progress dialog
-            progressDialog = new ProgressDialog(home.this);
-            progressDialog.setCancelable(false);
-            progressDialog.setCanceledOnTouchOutside(false);
-            progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            progressDialog.setTitle("Creating A backUp");
-            progressDialog.setMessage("please wait we are making a backup of your contacts on cloud...");
-            // make a button
-            progressDialog.show();
-
-        }
-
-        @Override
-        protected String doInBackground(String... strings) {
-
-            ContentResolver cr = getContentResolver();
-
-            Cursor cursor = cr.query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI, PROJECTION, null, null, ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
-            if (cursor != null) {
-                HashSet<String> mobileNoSet = new HashSet<String>();
-                try {
-                    final int nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME);
-                    final int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
-                    String name, number;
-                    int contactsCounter = 0;
-                    while (cursor.moveToNext()) {
-                        name = cursor.getString(nameIndex);
-                        number = cursor.getString(numberIndex);
-                        number = number.replace(" ", "");
-                        if (!mobileNoSet.contains(number)) {
-                            String key = mDatabaseRef.push().getKey();
-                            CloudContacts contacts = new CloudContacts(key, name, number);
-                            Map<String, Object> postValues = contacts.toMap();
-                            Map<String, Object> childUpdates = new HashMap<>();
-                            childUpdates.put(key, postValues);
-                            mDatabaseRef.child(CurrentUserId).updateChildren(childUpdates);
-                            contactList.add(new Contact(name, number));
-                            mobileNoSet.add(number);
-                        }
-                    }
 
 
-                } finally {
-                    cursor.close();
-                    contactList.clear();
-                    mobileNoSet.clear();
-                }
-            }
-
-            return "done";
-        }
-
-        @Override
-        protected void onPostExecute(String s) {
-            super.onPostExecute(s);
-            progressDialog.dismiss();
-        }
 
 
-    }
-
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
-
-    }
-
-
-    @Override
-    public void onPermissionsGranted(int requestCode, @NonNull List<String> perms) {
-
-    }
-
-    @Override
-    public void onPermissionsDenied(int requestCode, @NonNull List<String> perms) {
-        if (EasyPermissions.somePermissionPermanentlyDenied(this, perms)) {
-            new AppSettingsDialog.Builder(this).build().show();
-        }
-    }
-
-    @AfterPermissionGranted(123)
-    private void ReadContacts() {
-        String[] perms = {android.Manifest.permission.INTERNET, Manifest.permission.READ_CONTACTS};
-        if (EasyPermissions.hasPermissions(this, perms)) {
-            getContactList();
-        } else {
-            EasyPermissions.requestPermissions(this, "We need permissions because this and that",
-                    123, perms);
-        }
-    }
-
-    private void getContactList() {
-        FetchAllContacts fetchAllContacts = new FetchAllContacts();
-        fetchAllContacts.execute();
-    }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == AppSettingsDialog.DEFAULT_SETTINGS_REQ_CODE) {
+
         }
         if (requestCode == MY_REQUEST_CODE) {
             if (resultCode != RESULT_OK) {
-                Toasty.error(this,"Update flow failed.",Toasty.LENGTH_SHORT,true).show();
+                Toasty.error(this, "Update flow failed.", Toasty.LENGTH_SHORT, true).show();
             }
         }
+
+        if (requestCode == check_IF_USER_IMPORTS_CONTACTS) {
+            if (resultCode == RESULT_OK && data != null) {
+                String value = data.getStringExtra("msg");
+
+                if (value.equals("done")){
+                    editor.putString(TEXT, "delete");
+                    editor.apply();
+                    //item.setTitle("Delete All Contacts");
+                    AdRequest adRequest = new AdRequest.Builder().build();
+                    InterstitialAd.load(this,getString(R.string.interstitial_full_screen), adRequest, new InterstitialAdLoadCallback() {
+                        @Override
+                        public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
+                            // The mInterstitialAd reference will be null until
+                            // an ad is loaded.
+                            mInterstitialAd = interstitialAd;
+                            // Log.i(TAG, "onAdLoaded");
+                        }
+
+                        @Override
+                        public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                            // Handle the error
+
+                            //  Log.i(TAG, loadAdError.getMessage());
+                            mInterstitialAd = null;
+                        }
+                    });
+
+                    mInterstitialAd.setFullScreenContentCallback(new FullScreenContentCallback(){
+                        @Override
+                        public void onAdDismissedFullScreenContent() {
+                            // Called when fullscreen content is dismissed.
+                            //    Log.d("TAG", "The ad was dismissed.");
+                        }
+
+                        @Override
+                        public void onAdFailedToShowFullScreenContent(AdError adError) {
+                            // Called when fullscreen content failed to show.
+                            //  Log.d("TAG", "The ad failed to show.");
+                        }
+
+                        @Override
+                        public void onAdShowedFullScreenContent() {
+                            // Called when fullscreen content is shown.
+                            // Make sure to set your reference to null so you don't
+                            // show it a second time.
+                            mInterstitialAd = null;
+                            // Log.d("TAG", "The ad was shown.");
+                        }
+                    });
+
+
+
+                    showInterstialAd();
+                }
+                else{
+
+                }
+                Toasty.success(this, value, Toasty.LENGTH_SHORT, true).show();
+            }
+        }
+
+
     }
 
     private boolean haveNetworkConnection() {

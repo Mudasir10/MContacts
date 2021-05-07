@@ -4,8 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -14,14 +14,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MContacts">
-        <activity android:name=".AddContactsActivity" android:parentActivityName=".home"></activity>
+        <activity android:name=".activities.uploadContacts" android:theme="@style/Theme.AppCompat.Light.NoActionBar"></activity>
         <activity
-            android:name=".AccountDetails"
-            android:parentActivityName=".home" />
+            android:name=".activities.AddContactsActivity"
+            android:parentActivityName=".activities.home" />
+        <activity
+            android:name=".activities.AccountDetails"
+            android:parentActivityName=".activities.home" />
 
-        <activity android:name=".MainActivity"></activity>
-        <activity
-            android:name=".home">
+        <activity android:name=".activities.MainActivity" android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <activity android:name=".activities.home" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -37,7 +40,7 @@
 
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3549373853828953~6810934639"/>
+            android:value="ca-app-pub-3549373853828953~6810934639" />
 
     </application>
 
